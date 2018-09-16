@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <style>
+    
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  margin: auto;
+  position: relative;
+  width: 850px;
+}
 
 .node {
   cursor: pointer;
@@ -24,7 +31,7 @@ form {
 */
 
 .label {
-  font: 11px "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font: 15px "Helvetica Neue", Helvetica, Arial, sans-serif;
   text-anchor: middle;
   text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 -1px 0 #fff;
 }
@@ -42,7 +49,7 @@ form {
   <p id="demo">50</p>
 </form>
 
-<svg width="960" height="960"></svg>
+<svg width="850" height="850"></svg>
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script>
     
@@ -109,7 +116,7 @@ d3.json("flare.json", function(error, root) {
   circle.attr("class", function(d) { return d.parent ? d.children ? "node" : "node node--leaf" : "node node--root"; })
 //      .style("fill", function(d) { return d.depth == 3 ? heatmapColour(c(d.value)) :d.children ? color(d.depth) : null; }) // 2
 //      .style("fill", function(d) { return d.depth == 3 ? color_red(d.value) :d.children ? color(d.depth) : null; }) //  1
-        .style("fill", function(d) { return d.depth == 3 ? d.data.days < slider.value ? "white" : "red" :d.children ? color(d.depth) : null; })
+        .style("fill", function(d) { return d.depth == 3 ? (d.data.days < slider.value ? "white" : "hsl(355, 96%, 55%)"):(d.children ? color(d.depth) : null); })
       .on("click", function(d) { if (focus !== d) zoom(d), d3.event.stopPropagation(); });
        
   var text = g.selectAll("text")
@@ -124,13 +131,14 @@ d3.json("flare.json", function(error, root) {
     .on("change",change)
   
   function change() {
-      circle.style("fill", function(d) { return d.depth == 3 ? d.data.days < slider.value ? "white" : "red" :d.children ? color(d.depth) : null; })
+      circle.style("fill", function(d) { return d.depth == 3 ? d.data.days < slider.value ? "white" : "hsl(355, 96%, 55%)" :d.children ? color(d.depth) : null; })
   }
 
   var node = g.selectAll("circle,text");
 
   svg
-      .style("background", color(-1))
+//      .style("background", color(-1))
+      .style("background", "white")
       .on("click", function() { zoom(root); });
 
   zoomTo([root.x, root.y, root.r * 2 + margin]);
