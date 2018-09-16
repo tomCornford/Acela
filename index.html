@@ -1,98 +1,170 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <style>
-
+    
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   margin: auto;
   position: relative;
-  width: 960px;
+  width: 850px;
 }
 
-text {
-  font: 10px sans-serif;
+.node {
+  cursor: pointer;
 }
 
+.node:hover {
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+    
 form {
   position: absolute;
   right: 10px;
   top: 10px;
 }
 
+/*
+.node--leaf {
+  fill: white;
+}
+*/
+
+.label {
+  font: 15px "Helvetica Neue", Helvetica, Arial, sans-serif;
+  text-anchor: middle;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 -1px 0 #fff;
+}
+
+.label,
+.node--root,
+.node--leaf {
+  pointer-events: none;
+}
+
 </style>
+
 <form>
-  <label><input type="radio" name="dataset" value="apples" checked> Apples</label>
-  <label><input type="radio" name="dataset" value="oranges"> Oranges</label>
+  <label><input type="range" min="1" max="100" value="50" id="days"></label>
+  <p id="demo">50</p>
 </form>
-<script src="//d3js.org/d3.v3.min.js"></script>
+
+<svg width="850" height="850"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
 <script>
-
-var width = 960,
-    height = 500,
-    radius = Math.min(width, height) / 2;
-
-var color = d3.scale.category20();
-
-var pie = d3.layout.pie()
-    .value(function(d) { return d.apples; })
-    .sort(null);
-
-var arc = d3.svg.arc()
-    .innerRadius(radius - 100)
-    .outerRadius(radius - 20);
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-  .append("g")
-    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
-
-d3.tsv("data.tsv", type, function(error, data) {
-  if (error) throw error;
     
+var slider = document.getElementById("days");
+var output = document.getElementById("demo");
+output.innerHTML = slider.value; // Display the default slider value
 
-  var path = svg.datum(data).selectAll("path")
-      .each(function(d) {this.orignal_d = d;})
-      .data(pie)
-    .enter().append("path")
-//      .attr("fill", function(d, i) { return color(i); })
-      .each(function(d) { console.log(d); }) //added to inspect d
-      .attr("fill", function(d) { return d.value > 30000 ? "red":"blue" ;}) //added to base color on value
-      .attr("d", arc)
-      .each(function(d) { this._current = d; }); // store the initial angles
+// Update the current slider value (each time you drag the slider handle)
+slider.oninput = function() {
+    output.innerHTML = this.value;
+}
 
+var svg = d3.select("svg"),
+    margin = 20,
+    diameter = +svg.attr("width"),
+    g = svg.append("g").attr("transform", "translate(" + diameter / 2 + "," + diameter / 2 + ")");
+
+var color = d3.scaleLinear()
+    .domain([-1, 5])
+    .range(["hsl(152,80%,80%)", "hsl(228,30%,40%)"])
+    .interpolate(d3.interpolateHcl);
+    
+//var color_red = d3.scaleLinear() //  1.  scaled red for customers based on size
+
+//var colours = ["#6363FF", "#6373FF", "#63A3FF", "#63E3FF", "#63FFFB", "#63FFCB",
+//               "#63FF9B", "#63FF6B", "#7BFF63", "#BBFF63", "#DBFF63", "#FBFF63", 
+//               "#FFD363", "#FFB363", "#FF8363", "#FF7363", "#FF6364"]; //  2.  heat map for customers
+
+var pack = d3.pack()
+    .size([diameter - margin, diameter - margin])
+    .padding(2);
+
+d3.json("flare.json", function(error, root) {
+  if (error) throw error;
+
+  root = d3.hierarchy(root)
+      .sum(function(d) { return d.size; })
+      .sort(function(a, b) { return b.value - a.value; });
+
+  var focus = root,
+      nodes = pack(root).descendants(),
+      view;
+    
+//  var r = []; //  2.
+    
+  var circle = g.selectAll("circle")
+    .data(nodes)
+    .enter().append("circle")
+    .each(function(d) { console.log(d); })
+//      .each(function(d) { d.children == null ? r.push(d.value):null;})
+  
+//  var heatmapColour = d3.scaleLinear()
+//  .domain(d3.range(0, 1, 1.0 / (colours.length - 1)))
+//  .range(colours);
+//
+//  var c = d3.scaleLinear()
+//  .domain(d3.extent(r))
+//  .range([0,1]); //  2.  heat map for customers
+//    
+//  color_red.domain(d3.extent(r))
+//   .range(["hsl(351,100%,86%)", "hsl(358,78%,47%)"])
+//   .interpolate(d3.interpolateHcl); //  1.  scaled red for customers based on size
+      
+  circle.attr("class", function(d) { return d.parent ? d.children ? "node" : "node node--leaf" : "node node--root"; })
+//      .style("fill", function(d) { return d.depth == 3 ? heatmapColour(c(d.value)) :d.children ? color(d.depth) : null; }) // 2
+//      .style("fill", function(d) { return d.depth == 3 ? color_red(d.value) :d.children ? color(d.depth) : null; }) //  1
+        .style("fill", function(d) { return d.depth == 3 ? (d.data.days < slider.value ? "white" : "hsl(355, 96%, 55%)"):(d.children ? color(d.depth) : null); })
+      .on("click", function(d) { if (focus !== d) zoom(d), d3.event.stopPropagation(); });
+       
+  var text = g.selectAll("text")
+    .data(nodes)
+    .enter().append("text")
+      .attr("class", "label")
+      .style("fill-opacity", function(d) { return d.parent === root ? 1 : 0; })
+      .style("display", function(d) { return d.parent === root ? "inline" : "none"; })
+      .text(function(d) { return d.data.name; });
+    
   d3.selectAll("input")
-      .on("change", change);
-
-  var timeout = setTimeout(function() {
-    d3.select("input[value=\"oranges\"]").property("checked", true).each(change);
-  }, 2000);
-
+    .on("change",change)
+  
   function change() {
-    var value = this.value;
-    clearTimeout(timeout);
-    pie.value(function(d) { return d[value]; }); // change the value function
-    path = path.data(pie)  // compute the new angles
-    .attr("fill", function(d) { return d.value > 30000 ? "red":"blue" ;}); //added to udpate the colors
-    path.transition().duration(750).attrTween("d", arcTween); // redraw the arcs
+      circle.style("fill", function(d) { return d.depth == 3 ? d.data.days < slider.value ? "white" : "hsl(355, 96%, 55%)" :d.children ? color(d.depth) : null; })
+  }
+
+  var node = g.selectAll("circle,text");
+
+  svg
+//      .style("background", color(-1))
+      .style("background", "white")
+      .on("click", function() { zoom(root); });
+
+  zoomTo([root.x, root.y, root.r * 2 + margin]);
+
+  function zoom(d) {
+    var focus0 = focus; focus = d;
+
+    var transition = d3.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .tween("zoom", function(d) {
+          var i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2 + margin]);
+          return function(t) { zoomTo(i(t)); };
+        });
+
+    transition.selectAll("text")
+      .filter(function(d) { return d.parent === focus || this.style.display === "inline"; })
+        .style("fill-opacity", function(d) { return d.parent === focus ? 1 : 0; })
+        .on("start", function(d) { if (d.parent === focus) this.style.display = "inline"; })
+        .on("end", function(d) { if (d.parent !== focus) this.style.display = "none"; });
+  }
+
+  function zoomTo(v) {
+    var k = diameter / v[2]; view = v;
+    node.attr("transform", function(d) { return "translate(" + (d.x - v[0]) * k + "," + (d.y - v[1]) * k + ")"; });
+    circle.attr("r", function(d) { return d.r * k; });
   }
 });
-
-function type(d) {
-  d.apples = +d.apples;
-  d.oranges = +d.oranges;
-  return d;
-}
-
-// Store the displayed angles in _current.
-// Then, interpolate from _current to the new angles.
-// During the transition, _current is updated in-place by d3.interpolate.
-function arcTween(a) {
-  var i = d3.interpolate(this._current, a);
-  this._current = i(0);
-  return function(t) {
-    return arc(i(t));
-  };
-}
 
 </script>
